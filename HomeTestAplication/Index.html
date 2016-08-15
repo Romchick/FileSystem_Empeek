@@ -1,0 +1,225 @@
+﻿<!DOCTYPE html>
+<html ng-app="fileSystemApp">
+<head>
+    <title>File System</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.11/angular.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    
+    <style>
+        a {
+            color: blue;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        th {
+            background-color: #cccccc;
+        }
+
+        .resultTable,
+        .resultTable :nth-child(2) {
+            border-collapse: collapse;
+            border: 1px solid black;
+            text-align: center;
+            font-size: 20px;
+        }
+
+        #currentDir {
+            font-size: 20px;
+        }
+
+     </style>
+</head>
+
+<body ng-controller="getFileSizeController">
+    <div>
+        <table class="resultTable">
+            <th>Small&nbsp&nbsp</th>
+            <th>Medium&nbsp&nbsp</th>
+            <th>Large&nbsp&nbsp</th>
+            <tr><td>{{fileSizes[0]}}</td><td>{{fileSizes[1]}}</td><td>{{fileSizes[2]}}</td></tr>
+        </table>
+    </div>
+
+    <div id="currentDir">
+        <h3>Your current directory: D:\{{curPath}}</h3>
+    </div>
+
+    <div>
+        <table>
+            <td><a ng-click="makeBackCount($event); getFileSizes(); toNextFolder()">....</a></td>
+            <tr ng-repeat="value in folderStructure"><td><a ng-click="makeNextCount($event); getFileSizes(); toNextFolder()">{{value}}</a></td></tr>
+        </table>
+    </div>
+
+    <script>
+       //Variables to be necessary
+        var newPath = '';
+        var currentPathClick = '';
+        var folders = [];
+
+        var fileSystemApp = angular.module("fileSystemApp", []);
+        fileSystemApp.controller("getFileSizeController", function ($scope, $http) {
+        // The function, that starts on document ready and retuns file structure of drive (D:\)
+            angular.element(document).ready(function () {
+                $http({
+                    method: "GET",
+                    url: '/api/FileSystem/GetAllSubfolers?id=' + encodeURIComponent(newPath)
+                }).then(function onSuccess(response) {
+                    $scope.folderStructure = response.data;
+                }, function onError(response) {
+                    alert("File structure error!");
+                });
+            });
+            // This function is colled on click on name of directory. 
+            //It sends GET request and returns structure of subdirectories of clicked Directory
+            $scope.toNextFolder = function toNextFolder() {
+                $http({
+                    method: "GET",
+                    url: '/api/FileSystem/GetAllSubfolers?id=' + encodeURIComponent(newPath)
+                }).then(function onSuccess(response) {
+                    $scope.folderStructure = response.data;
+                }, function onError(response) {
+                    alert("File structure error, maybe you clicked on file or there are unreacheble files!");
+                    $scope.makeBackCount();
+                });
+
+            }
+            //This function also is colled on click on name of directory. 
+            // It sends GET request and returns count of small, medium ad large files in directory and subdirectories
+            $scope.getFileSizes = function getFileSizes() {
+                $http({
+                    method: "GET",
+                    url: "/api/FileSystem/GetFilesSize?id=" + encodeURIComponent(newPath)
+                }).then(function onSuccess(response) {
+                    $scope.fileSizes = response.data;
+                }, function onError(response) {
+                    $scope.fileSizes = response.statusText;
+
+                });
+            }
+            //This function is colled on click on name of directory and is used for creating path to selected directory
+            $scope.makeNextCount = function (event) {
+                newPath = newPath + ($(event.target).text());
+                currentPathClick = ($(event.target).text());
+                folders.push(currentPathClick);
+                $scope.curPath = newPath;
+
+            };
+            //This function is colled on click on '....' and is used for creation path to previos directory
+            $scope.makeBackCount = function (event) {
+                newPath = newPath.replace(folders[folders.length - 1], '');
+                folders.splice(folders.length - 1, folders.length);
+                $scope.curPath = newPath;
+            };
+
+        });
+    </script>
+</body>
+</html>
+
+<!-- The same code, written in jQuerry-->
+<!--
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>File System</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+</head>
+
+<body>
+    <div id="fileSize">
+    </div>
+
+    <div id="currentDir">
+        <h3>Your current directory: D:\</h3>
+    </div>
+
+    <div id="folders">
+    </div>
+
+    <script>
+     //Variables to be necessary
+        var newPath = '';
+        var currentPathClick = '';
+        var folders = [];
+
+        $(document).ready(function () {
+            ShowFolderExplorer();
+            GetFileSize();
+        });
+
+    // It sends GET request and returns count of small, medium ad large files in directory and subdirectories
+        function GetFileSize() {
+            $.ajax({
+                url: '/api/FileSystem/GetFilesSize?id=' + encodeURIComponent(newPath),
+                type: 'GET',
+                dataType: 'json',
+                success: function (data) {
+                    WriteResponse(data);
+                },
+                error: function () {
+                    // alert('Error!');
+                }
+            });
+        }
+        function WriteResponse(files) {
+            var strResult = "<table><th>Small&nbsp&nbsp</th><th>Medium&nbsp&nbsp</th><th>Large&nbsp&nbsp</th>";
+            strResult += "<tr></td><td>" + files[0] + "</td><td>" + files[1] + "</td><td>" + files[2] + "</td><td></tr>"
+            strResult += "</table>";
+            $("#fileSize").html(strResult);
+        }
+
+         //It sends GET request and returns structure of subdirectories of clicked Directory
+        function ShowFolderExplorer() {
+            $.ajax({
+                url: '/api/FileSystem/GetAllSubfolers?id=' + encodeURIComponent(newPath),
+                type: 'GET',
+                dataType: 'json',
+                success: function (data) {
+                    GetFolderStructure(data);
+                },
+                error: function () {
+                    //alert('Folder Structure Error!');
+                }
+            });
+        }
+        function GetFolderStructure(pathes) {
+            var foldersResult = "<table><td><a id='toParrentFolder'>....</a></td>";
+            $.each(pathes, function (index, path) {
+                foldersResult += "<tr><td><a id='toNextFolder'>" + path + "</a></td></tr>";
+            });
+            foldersResult += "</table>";
+            $("#folders").html(foldersResult);
+
+      //This function is colled on click on name of directory and is used for creating path to selected directory
+            $("a[id='toNextFolder']").click(function () {
+                currentPathClick = ($(this).text());
+                newPath = newPath + ($(this).text());
+                ShowFolderExplorer();
+                ShowCurrentDirectory();
+                folders.push(currentPathClick);
+                GetFileSize();
+                });
+     //This function is colled on click on '....' and is used for creation path to previos directory
+            $("a[id='toParrentFolder']").click(function () {
+                newPath = newPath.replace(folders[folders.length - 1], '');
+                ShowFolderExplorer();
+                folders.splice(folders.length - 1, folders.length);
+                console.log(folders);
+                ShowCurrentDirectory();
+                GetFileSize();
+                });
+        }
+    //This functions return your current directory
+            function ShowCurrentDirectory() {
+            var currentDir = "<h3>Your current directory: D:\\" + newPath + "</h3>";
+            $('#currentDir').html(currentDir);
+            }
+    </script>
+
+</body>
+</html>
+
+
+    -->
